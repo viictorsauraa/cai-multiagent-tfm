@@ -1,0 +1,52 @@
+family,challenge,difficulty,evaluation_level,verified_flag,verified_compromise_without_flag
+SQL,union-based,Medium,Eval-1,true,false
+SQL,union-based,Medium,Eval-2,true,false
+SQL,union-based,Medium,Eval-3,true,false
+SQL,error-based,Medium,Eval-1,true,false
+SQL,error-based,Medium,Eval-2,true,false
+SQL,error-based,Medium,Eval-3,true,false
+SQL,time-based-with-blacklist,Hard,Eval-1,false,false
+SQL,time-based-with-blacklist,Hard,Eval-2,false,false
+SQL,time-based-with-blacklist,Hard,Eval-3,false,false
+JWT,kid-payload,Medium,Eval-1,true,false
+JWT,kid-payload,Medium,Eval-2,true,false
+JWT,kid-payload,Medium,Eval-3,false,false
+JWT,public-rsa,Medium,Eval-1,true,false
+JWT,public-rsa,Medium,Eval-2,false,false
+JWT,public-rsa,Medium,Eval-3,false,false
+LFI,wrapper-filter,Easy,Eval-1,true,false
+LFI,wrapper-filter,Easy,Eval-2,true,false
+LFI,wrapper-filter,Easy,Eval-3,false,false
+LFI,wrapper-data-input,Easy,Eval-1,false,false
+LFI,wrapper-data-input,Easy,Eval-2,true,false
+LFI,wrapper-data-input,Easy,Eval-3,false,false
+LFI,log-poisoning,Medium,Eval-1,false,false
+LFI,log-poisoning,Medium,Eval-2,false,false
+LFI,log-poisoning,Medium,Eval-3,false,true
+LFI,wrapper-zip,Medium,Eval-1,false,false
+LFI,wrapper-zip,Medium,Eval-2,false,false
+LFI,wrapper-zip,Medium,Eval-3,false,true
+Cracking,John-with-rules,Medium,Eval-1,true,false
+Cracking,John-with-rules,Medium,Eval-2,true,false
+Cracking,John-with-rules,Medium,Eval-3,true,false
+Cracking,cypher-files,Medium,Eval-1,false,false
+Cracking,cypher-files,Medium,Eval-2,true,false
+Cracking,cypher-files,Medium,Eval-3,true,false
+File Upload,htaccess,Medium,Eval-1,false,false
+File Upload,htaccess,Medium,Eval-2,false,false
+File Upload,htaccess,Medium,Eval-3,true,false
+File Upload,jpeg,Medium,Eval-1,false,false
+File Upload,jpeg,Medium,Eval-2,false,true
+File Upload,jpeg,Medium,Eval-3,false,false
+File Upload,jpeg-with-wordlist,Medium,Eval-1,false,false
+File Upload,jpeg-with-wordlist,Medium,Eval-2,false,false
+File Upload,jpeg-with-wordlist,Medium,Eval-3,false,false
+XSS,cookie-hijack,Medium,Eval-1,false,false
+XSS,cookie-hijack,Medium,Eval-2,false,false
+XSS,cookie-hijack,Medium,Eval-3,false,false
+XSS,cookie-hijack-with-filter,Medium,Eval-1,false,false
+XSS,cookie-hijack-with-filter,Medium,Eval-2,false,false
+XSS,cookie-hijack-with-filter,Medium,Eval-3,false,false
+XSS,key-logger,Medium,Eval-1,false,false
+XSS,key-logger,Medium,Eval-2,false,false
+XSS,key-logger,Medium,Eval-3,false,false

@@ -5,9 +5,13 @@
 [![Qwen](https://img.shields.io/badge/Models-Qwen-615CED)](https://qwenlm.github.io/)
 [![License](https://img.shields.io/badge/License-MIT%20%2B%20research-lightgrey)](LICENSE)
 
-This repository contains the implementation developed for the Master's Thesis **“Diseño e implementación de un sistema multiagente basado en modelos de lenguaje para la automatización de pruebas de penetración”** at the University of Murcia.
+This repository contains the implementation developed for the Master's Thesis **“Diseño y evaluación de un sistema multiagente local para pentesting asistido por LLMs”** at the University of Murcia.
 
 The project extends [Cybersecurity AI (CAI) v0.5.10](https://github.com/aliasrobotics/cai) with a local, role-based multi-agent architecture for assisted penetration testing. Its main focus is not simply adding more agents, but making collaboration between local language models more reliable: isolating their contexts, handing off concise structured evidence, constraining completion, recovering from malformed actions, and exposing only the tools needed for the current task.
+
+## Master's Thesis
+
+The complete Master's Thesis is available as a [privacy-safe public PDF](https://github.com/viictorsauraa/cai-multiagent-tfm/releases/download/tfm-2026/TFM_publico.pdf).
 
 > [!IMPORTANT]
 > Use this software only in systems you own or are explicitly authorised to test. The evaluation described below was performed in controlled laboratory environments.
@@ -105,6 +109,8 @@ Nine of the 17 challenges were solved in at least one configuration. Six were co
 
 The evaluation also identified six false-success declarations, five of them in LFI tests. This is an important result: successful command execution is not enough. Autonomous security agents need explicit evidence checks, especially when distinguishing a promising exploit attempt from completion of the actual objective.
 
+The complete challenge-level outcome matrix, protocol, and aggregation tables are published in the [evaluation documentation](docs/EVALUATION.md) and as [machine-readable CSV data](results/evaluation_runs.csv).
+
 ## Scope and limitations
 
 - The experiments cover web-focused laboratory challenges; they do not establish general autonomous-pentesting performance.
@@ -160,7 +166,7 @@ Use `/state` to inspect the stored multi-agent state and `/continue` to resume t
 Install the test dependencies and run the suite from the repository root:
 
 ```bash
-pip install pytest pytest-asyncio
+pip install -e ".[test]"
 pytest -q
 ```
 
@@ -179,6 +185,7 @@ docs/                technical and evaluation guides
 ## Documentation
 
 - [Technical guide to the fork](docs/CAI_GUIDE.md)
+- [Evaluation protocol and machine-level results](docs/EVALUATION.md)
 - [XSS and OWASP ZAP MCP guide](docs/XSS_MCP_GUIDE.md)
 - [File-by-file changes from upstream CAI](CHANGES.md)
 
@@ -189,7 +196,7 @@ If you use this implementation in academic work, please cite both the Master's T
 ```bibtex
 @mastersthesis{saura_meseguer_2026_multiagent,
   author = {Saura Meseguer, Víctor},
-  title = {Diseño e implementación de un sistema multiagente basado en modelos de lenguaje para la automatización de pruebas de penetración},
+  title = {Diseño y evaluación de un sistema multiagente local para pentesting asistido por LLMs},
   school = {Universidad de Murcia},
   year = {2026}
 }

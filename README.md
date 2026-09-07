@@ -11,7 +11,7 @@ The project extends [Cybersecurity AI (CAI) v0.5.10](https://github.com/aliasrob
 
 ## Master's Thesis
 
-The complete Master's Thesis is available as a [privacy-safe public PDF](https://github.com/viictorsauraa/cai-multiagent-tfm/releases/download/tfm-2026/TFM_publico.pdf).
+The complete Master's Thesis is available as a [PDF](https://github.com/viictorsauraa/cai-multiagent-tfm/releases/download/tfm-2026/TFM.pdf).
 
 > [!IMPORTANT]
 > Use this software only in systems you own or are explicitly authorised to test. The evaluation described below was performed in controlled laboratory environments.

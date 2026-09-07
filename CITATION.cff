@@ -23,8 +23,8 @@ preferred-citation:
   type: thesis
   thesis-type: Master's thesis
   title: >-
-    Diseño e implementación de un sistema multiagente basado en modelos de
-    lenguaje para la automatización de pruebas de penetración
+    Diseño y evaluación de un sistema multiagente local para pentesting
+    asistido por LLMs
   authors:
     - family-names: Saura Meseguer
       given-names: Víctor

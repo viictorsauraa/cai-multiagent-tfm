@@ -1,46 +1,136 @@
-# cai-multiagent-tfm
+# Local Multi-Agent System for LLM-Assisted Pentesting
 
-![Python](https://img.shields.io/badge/python-3.12-blue)
-![License](https://img.shields.io/badge/license-MIT%20%2B%20research-lightgrey)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Ollama](https://img.shields.io/badge/Inference-Ollama-black)](https://ollama.com/)
+[![Qwen](https://img.shields.io/badge/Models-Qwen-615CED)](https://qwenlm.github.io/)
+[![License](https://img.shields.io/badge/License-MIT%20%2B%20research-lightgrey)](LICENSE)
 
-A fork of [CAI (Cybersecurity AI)](https://github.com/aliasrobotics/cai) `cai-framework` 0.5.10 that adds orchestrated multi-agent patterns, isolated per-agent context, and a set of web-exploitation tools. It was built to evaluate autonomous pentesting with local models (Ollama), where small models call tools unreliably and a single shared context degrades quickly across handoffs. The changes target both problems: coordination between specialized agents, and runtime stability under local inference.
+This repository contains the implementation developed for the Master's Thesis **“Diseño e implementación de un sistema multiagente basado en modelos de lenguaje para la automatización de pruebas de penetración”** at the University of Murcia.
 
-## What's different from upstream CAI
+The project extends [Cybersecurity AI (CAI) v0.5.10](https://github.com/aliasrobotics/cai) with a local, role-based multi-agent architecture for assisted penetration testing. Its main focus is not simply adding more agents, but making collaboration between local language models more reliable: isolating their contexts, handing off concise structured evidence, constraining completion, recovering from malformed actions, and exposing only the tools needed for the current task.
 
-The file-by-file mapping is in [CHANGES.md](CHANGES.md). The main additions:
+> [!IMPORTANT]
+> Use this software only in systems you own or are explicitly authorised to test. The evaluation described below was performed in controlled laboratory environments.
 
-- **Two orchestrated patterns**, each a team of six agents in a hub-and-spoke topology (a central coordinator delegates to specialists, which hand control back): a Red Team pattern (Orchestrator, Recon, Strategy, Exploitation, PrivEsc, Report) and a Bug Bounty pattern.
-- **Per-agent model assignment.** Each agent can run a different model, set through environment variables. A `_lock_model` flag stops the CLI from overwriting those assignments.
-- **Isolated per-agent context.** Instead of one growing shared history, each agent keeps its own and receives a structured briefing at each handoff (objective, commands run, key tool outputs, findings). This keeps context from growing without bound in long swarm runs.
-- **Session-finish control** (`can_finish`). Only the Orchestrator and Report agents can end a session; a specialist that replies without calling a tool is nudged back to work.
-- **16 tool profiles** that pre-process commands (adding flags a tool needs to avoid failing) and post-process output (extracting a short summary from long scans). Profiles are auto-discovered.
-- **Text-based tool-call and handoff detection.** Local models that write a tool call as plain text or a fenced code block instead of using function calling are detected, and the call is executed anyway.
-- **Ollama support and runtime stability:** dynamic resolution of the real context window (so auto-compact actually triggers on local models), configurable request timeouts, retries on empty `<think>` responses, and process-tree termination so tools like sqlmap don't leave child processes running.
-- **MCP servers** for OWASP ZAP and Burp Suite, under [examples/mcp/](examples/mcp/).
-- **Native web toolkits** for XSS, JWT, LFI, and file upload, under `src/cai/tools/web/`.
-- **`/state` REPL command** to inspect and reset the findings file, and a **pytest test suite** (upstream shipped none).
+## At a glance
+
+| Item | Value |
+|---|---|
+| Architecture | Hub-and-spoke orchestration with specialised agents |
+| Agent patterns | Red Team and Bug Bounty, with 6 roles in each team |
+| Execution | Hub-and-spoke handoffs; one delegated specialist works at a time |
+| Models | Role-specific Qwen models served locally through Ollama |
+| Evaluation | 17 vulnerable machines, 3 assistance levels, 51 runs |
+| Strictly verified successes | 18/51 (35.29%) |
+| Challenges solved at least once | 9/17 (52.94%) |
+| Solved from target-only, black-box instructions | 6/17 |
+
+## Architecture
+
+The orchestrator decomposes the objective and delegates bounded subtasks to specialised agents. The roles are not run as a fully parallel swarm: the orchestrator activates the specialist needed for the current phase, and that specialist hands control back when its bounded task is complete. Each agent maintains an isolated conversation history and returns a compact structured briefing instead of transferring its complete context. This preserves useful role-specific state without filling every model's context with the complete session.
+
+```mermaid
+flowchart TD
+    U[User objective] --> O[Orchestrator]
+    O <--> R[Reconnaissance]
+    O <--> S[Strategy]
+    O <--> E[Exploitation]
+    O <--> P[Privilege escalation]
+    O <--> RPT[Reporting]
+```
+
+| Role | Default model | Responsibility |
+|---|---|---|
+| Orchestrator | `qwen2.5:72b` | Plan, delegate, validate progress, and decide the next phase |
+| Reconnaissance | `qwen3:14b` | Discover and enumerate the target's exposed surface |
+| Strategy | `qwen2.5:72b` | Analyse confirmed findings and define the attack plan |
+| Exploitation | `qwen2.5:32b` | Execute the selected exploitation steps |
+| Privilege escalation | `qwen2.5:32b` | Inspect the compromised system and seek higher privileges |
+| Reporting | `qwen3:14b` | Collect evidence and produce the final report |
+
+These are fallback defaults for the Red Team pattern and can be overridden with `CAI_ORCH_MODEL`, `CAI_RECON_MODEL`, `CAI_STRATEGY_MODEL`, `CAI_EXPLOIT_MODEL`, `CAI_PRIVESC_MODEL`, and `CAI_REPORT_MODEL`. The assignments and handoffs are defined in [`src/cai/agents/patterns/redteam_orchestrated.py`](src/cai/agents/patterns/redteam_orchestrated.py).
+
+## Main engineering contributions
+
+### Reliable orchestration
+
+- Strict model locking prevents an agent from silently inheriting another agent's model after a handoff.
+- Per-agent message histories avoid cross-role context contamination.
+- Structured handoff briefings carry objectives, confirmed findings, evidence, unsuccessful attempts, and suggested next steps.
+- The orchestrator can resume an existing specialist instead of recreating it and losing its state.
+- A `can_finish` gate prevents specialist agents from ending the complete session; only the orchestrator and reporting role may do so.
+- Repetition detection and handoff limits reduce stalled delegation loops.
+
+### Context engineering for local models
+
+- Ollama context windows are adjusted dynamically by model family and size.
+- History is compacted when needed while preserving system instructions and recent operational evidence.
+- Tool outputs are normalised and truncated before they overwhelm the model context.
+- Malformed tool calls and incomplete handoffs are repaired when recovery is unambiguous.
+
+### Tool execution extensions
+
+- The inherited CAI execution layer is extended with process-tree-aware timeout handling for long-running commands.
+- Sixteen reusable profiles add safe defaults, timeouts, and output reduction for command-line tools such as Nmap, sqlmap, Hydra, ffuf, and Dalfox.
+- Native web toolkits encapsulate common XSS, JWT, LFI, and file-upload operations.
+- MCP integration examples are included for OWASP ZAP and Burp Suite.
+
+### Selective web-tool activation
+
+The web-exploitation toolkits are deliberately **not exposed all at once**. Every tool definition consumes context and increases the action-selection burden on local models, so only the toolkit relevant to the current vulnerability family should be enabled.
+
+The repository includes native toolkits for XSS, JWT, LFI, and file-upload workflows, alongside command profiles for tools such as sqlmap and web crawlers. During the evaluation, the relevant native toolkit was activated explicitly for each test family. In the checked-in exploitation-agent configuration, the file-upload toolkit is enabled as an example; the other native toolkits remain available for selective activation.
+
+## Evaluation
+
+The system was evaluated on 17 intentionally vulnerable machines covering SQL injection, JWT weaknesses, local file inclusion, unrestricted file upload, cross-site scripting, and password cracking. Each machine was tested once at each of three assistance levels:
+
+1. **Black box:** only the target address and final objective.
+2. **Guided:** the vulnerable endpoint or component was identified.
+3. **Highly guided:** the vulnerability class and additional exploitation guidance were supplied.
+
+A run counted as successful only when the expected flag was recovered and independently verified.
+
+| Vulnerability family | Verified successes | Runs | Success rate |
+|---|---:|---:|---:|
+| Password cracking | 5 | 6 | 83.33% |
+| SQL injection | 6 | 9 | 66.67% |
+| JWT | 3 | 6 | 50.00% |
+| Local file inclusion | 3 | 12 | 25.00% |
+| File upload | 1 | 9 | 11.11% |
+| Cross-site scripting | 0 | 9 | 0.00% |
+| **Total** | **18** | **51** | **35.29%** |
+
+Nine of the 17 challenges were solved in at least one configuration. Six were completed from the black-box instruction alone. Three additional runs achieved a real compromise but could not retrieve the expected flag, so they were excluded from the strict success count.
+
+The evaluation also identified six false-success declarations, five of them in LFI tests. This is an important result: successful command execution is not enough. Autonomous security agents need explicit evidence checks, especially when distinguishing a promising exploit attempt from completion of the actual objective.
+
+## Scope and limitations
+
+- The experiments cover web-focused laboratory challenges; they do not establish general autonomous-pentesting performance.
+- Every challenge/assistance combination was run once, so the results do not measure run-to-run variance.
+- The three assistance levels are not direct model baselines: occasional human interventions redirected the workflow but did not provide the solution.
+- All roles used one fixed model assignment; the thesis did not perform an exhaustive comparison of model combinations.
+- Privilege escalation had little representation in the selected benchmark.
+- No uncontrolled real-world deployment was performed or is implied.
 
 ## Installation
 
-Tested on Ubuntu 24.04 with Python 3.12.
+The implementation was developed and evaluated on Ubuntu with Python 3.12. Local model execution requires an Ollama server with enough memory for the selected models; the original experiments used a separate inference server with access to two NVIDIA A100 GPUs.
 
 ```bash
-git clone <repo-url> cai-multiagent-tfm
+git clone https://github.com/viictorsauraa/cai-multiagent-tfm.git
 cd cai-multiagent-tfm
 
-python3.12 -m venv cai_env
-source cai_env/bin/activate
-
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
 pip install -e .
-```
 
-Copy the example environment file and edit it:
-
-```bash
 cp .env.example .env
 ```
 
-Set `OLLAMA_API_BASE` to your Ollama server for local models, or an API key for a cloud provider. The orchestrated patterns default to local models, so pull them first:
+Pull the configured models on the Ollama host:
 
 ```bash
 ollama pull qwen2.5:72b
@@ -48,70 +138,75 @@ ollama pull qwen2.5:32b
 ollama pull qwen3:14b
 ```
 
-To apply the fork over an existing `cai-framework` install instead of installing from source, use `install.sh` (its header documents both modes).
+Then set the Ollama-compatible endpoint in `.env`, for example:
 
-## Quick start
-
-The pattern to run is selected with the `CAI_AGENT_TYPE` variable. To launch the Red Team team against a target:
-
-```bash
-CAI_AGENT_TYPE="redteam_orchestrated_pattern" cai --prompt "Pentest 172.17.0.2 and get root"
+```dotenv
+OLLAMA_API_BASE=http://127.0.0.1:11434/v1
 ```
 
-Use `bb_orchestrated_pattern` for the Bug Bounty team. Per-agent models are set through environment variables:
+## Running the system
 
-| Variable | Default | Agent |
-|----------|---------|-------|
-| `CAI_ORCH_MODEL` | `qwen2.5:72b` | Orchestrator |
-| `CAI_RECON_MODEL` | `qwen3:14b` | Recon |
-| `CAI_STRATEGY_MODEL` | `qwen2.5:72b` | Strategy |
-| `CAI_EXPLOIT_MODEL` | `qwen2.5:32b` | Exploitation |
-| `CAI_PRIVESC_MODEL` | `qwen2.5:32b` | PrivEsc |
-| `CAI_REPORT_MODEL` | `qwen3:14b` | Report |
+Start the role-based workflow with the `redteam_orchestrated_pattern` agent:
 
-`--continue` runs the agent autonomously, re-injecting a continue prompt after each turn. Interrupt with `Ctrl+C`.
+```bash
+CAI_AGENT_TYPE="redteam_orchestrated_pattern" \
+cai --continue --prompt "Pentest 172.17.0.2 and obtain the flag"
+```
 
-## Documentation
+Use `/state` to inspect the stored multi-agent state and `/continue` to resume the workflow from the interactive CLI. See [`docs/CAI_GUIDE.md`](docs/CAI_GUIDE.md) for configuration and operating details.
 
-- [docs/CAI_GUIDE.md](docs/CAI_GUIDE.md): technical guide to the fork, with the architecture and the design decisions behind each change.
-- [docs/XSS_MCP_GUIDE.md](docs/XSS_MCP_GUIDE.md): running XSS challenges with the OWASP ZAP MCP server.
-- [CHANGES.md](CHANGES.md): file-by-file list of every change against upstream CAI.
+## Tests
+
+Install the test dependencies and run the suite from the repository root:
+
+```bash
+pip install pytest pytest-asyncio
+pytest -q
+```
+
+The tests cover multi-agent state, handoffs, model locking, context management, loop detection, tool profiles, timeouts, and related reliability mechanisms.
 
 ## Repository layout
 
-```
-src/cai/            modified CAI package
-  agents/           Red Team and Bug Bounty agents, orchestration patterns
-  sdk/              runner, models, isolated-context logic
-  tools/            tool profiles, web toolkits, command execution
-  repl/             REPL commands (includes /state)
-  prompts/          agent system prompts
-tests/              pytest suite
-examples/mcp/       Burp Suite and OWASP ZAP MCP servers
-docs/               translated guides
-CHANGES.md          changes against upstream CAI
+```text
+src/cai/agents/      agent definitions and orchestration logic
+src/cai/repl/        CLI, handoff, history, and state handling
+src/cai/tools/       command, web, and custom tool integrations
+tests/               unit and integration-oriented tests
+docs/                technical and evaluation guides
 ```
 
-## Citing
+## Documentation
 
-This is a fork developed as part of a Master's thesis. For the original framework, cite the CAI paper:
+- [Technical guide to the fork](docs/CAI_GUIDE.md)
+- [XSS and OWASP ZAP MCP guide](docs/XSS_MCP_GUIDE.md)
+- [File-by-file changes from upstream CAI](CHANGES.md)
+
+## Citing this work
+
+If you use this implementation in academic work, please cite both the Master's Thesis and the original CAI framework:
 
 ```bibtex
+@mastersthesis{saura_meseguer_2026_multiagent,
+  author = {Saura Meseguer, Víctor},
+  title = {Diseño e implementación de un sistema multiagente basado en modelos de lenguaje para la automatización de pruebas de penetración},
+  school = {Universidad de Murcia},
+  year = {2026}
+}
+
 @misc{mayoralvilches2025caiopenbugbountyready,
-  title={CAI: An Open, Bug Bounty-Ready Cybersecurity AI},
-  author={Víctor Mayoral-Vilches and Luis Javier Navarrete-Lozano and María Sanz-Gómez and Lidia Salas Espejo and Martiño Crespo-Álvarez and Francisco Oca-Gonzalez and Francesco Balassone and Alfonso Glera-Picón and Unai Ayucar-Carbajo and Jon Ander Ruiz-Alcalde and Stefan Rass and Martin Pinzger and Endika Gil-Uriarte},
-  year={2025},
-  eprint={2504.06017},
-  archivePrefix={arXiv},
-  primaryClass={cs.CR},
-  url={https://arxiv.org/abs/2504.06017},
+  title = {CAI: An Open, Bug Bounty-Ready Cybersecurity AI},
+  author = {Víctor Mayoral-Vilches and Luis Javier Navarrete-Lozano and María Sanz-Gómez and Lidia Salas Espejo and Martiño Crespo-Álvarez and Francisco Oca-Gonzalez and Francesco Balassone and Alfonso Glera-Picón and Unai Ayucar-Carbajo and Jon Ander Ruiz-Alcalde and Stefan Rass and Martin Pinzger and Endika Gil-Uriarte},
+  year = {2025},
+  eprint = {2504.06017},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CR},
+  url = {https://arxiv.org/abs/2504.06017}
 }
 ```
 
-## License
+## License and acknowledgements
 
-Same as upstream CAI: a combination of MIT-licensed open-source components and additions licensed for research purposes only. See [LICENSE](LICENSE) and [LICENSE-MIT](LICENSE-MIT).
+This repository combines MIT-licensed components with additions covered by the research-use terms described in [LICENSE](LICENSE) and [LICENSE-MIT](LICENSE-MIT).
 
-## Acknowledgments
-
-Built on [CAI](https://github.com/aliasrobotics/cai) by Alias Robotics. This fork was developed as part of a Master's thesis.
+It builds on [Cybersecurity AI (CAI)](https://github.com/aliasrobotics/cai). The thesis implementation and evaluation should therefore be understood as an extension of that project, with the upstream authors credited for the original framework.

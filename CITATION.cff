@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite the Master's Thesis and the original
+  CAI framework as described in the repository README.
+title: Local Multi-Agent System for LLM-Assisted Pentesting
+type: software
+authors:
+  - family-names: Saura Meseguer
+    given-names: Víctor
+repository-code: https://github.com/viictorsauraa/cai-multiagent-tfm
+url: https://github.com/viictorsauraa/cai-multiagent-tfm
+abstract: >-
+  A role-based multi-agent extension of Cybersecurity AI (CAI) for assisted
+  penetration testing with locally served language models.
+keywords:
+  - cybersecurity
+  - multi-agent systems
+  - large language models
+  - penetration testing
+  - Ollama
+  - CAI
+preferred-citation:
+  type: thesis
+  thesis-type: Master's thesis
+  title: >-
+    Diseño e implementación de un sistema multiagente basado en modelos de
+    lenguaje para la automatización de pruebas de penetración
+  authors:
+    - family-names: Saura Meseguer
+      given-names: Víctor
+  year: 2026
+  institution:
+    name: Universidad de Murcia
